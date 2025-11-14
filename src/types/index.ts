@@ -260,6 +260,12 @@ export interface TradeSignal {
   indicators: TechnicalIndicators;
   timestamp: Date;
   spread?: BullPutSpread | BearCallSpread | IronCondor;
+  // For naked options trading
+  option?: OptionsChain;
+  symbol?: string;
+  strike?: number;
+  expiration?: Date;
+  side?: 'CALL' | 'PUT';
 }
 
 export interface AgentSignal {

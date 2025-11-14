@@ -80,6 +80,7 @@ export interface PositionManagementDecision {
   urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   newStopLoss?: number;
   newProfitTarget?: number;
+  positionId?: string;               // ID of the position this decision applies to
 }
 
 /**

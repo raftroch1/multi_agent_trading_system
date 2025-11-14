@@ -6,7 +6,7 @@
  */
 
 import { MarketData, TechnicalIndicators, OptionsChain, TradeSignal } from '../types';
-import { TechnicalAnalysis } from '../utils/technical-indicators';
+import { TechnicalAnalysis, DataUtils } from '../utils/technical-indicators';
 import { GreeksEngine } from '../utils/greeks-engine';
 import { SPYMarketInternalsAgent } from './spy-market-internals-agent';
 import { MultiTimeframeAnalystAgent } from './multi-timeframe-analyst-agent';
@@ -42,7 +42,17 @@ export interface ConsensusSignal {
  */
 export class TechnicalAnalysisAgent {
   static analyze(marketData: MarketData[], optionsChain: OptionsChain[]): AgentSignal {
-    const currentPrice = marketData[marketData.length - 1].close;
+    const lastCandle = DataUtils.safeLast(marketData);
+    if (!lastCandle) {
+      return {
+        agent: 'TechnicalAnalysisAgent',
+        signal: 'NO_TRADE',
+        confidence: 0,
+        reasoning: ['No market data available'],
+        data: null
+      };
+    }
+    const currentPrice = lastCandle.close;
     const indicators = TechnicalAnalysis.calculateAllIndicators(marketData);
 
     if (!indicators) {

@@ -1,6 +1,39 @@
 
 import { MarketData, TechnicalIndicators } from '../types';
 
+/**
+ * Utility functions for safe data access
+ */
+export class DataUtils {
+  /**
+   * Safely get the last element of an array
+   */
+  static safeLast<T>(arr: T[]): T | undefined {
+    return arr.length > 0 ? arr[arr.length - 1] : undefined;
+  }
+
+  /**
+   * Safely get the first element of an array
+   */
+  static safeFirst<T>(arr: T[]): T | undefined {
+    return arr.length > 0 ? arr[0] : undefined;
+  }
+
+  /**
+   * Safely get an element at a specific index
+   */
+  static safeGet<T>(arr: T[], index: number): T | undefined {
+    return index >= 0 && index < arr.length ? arr[index] : undefined;
+  }
+
+  /**
+   * Check if value is defined and not null
+   */
+  static isDefined<T>(value: T | undefined | null): value is T {
+    return value !== undefined && value !== null;
+  }
+}
+
 export class TechnicalAnalysis {
   
   static calculateRSI(data: MarketData[], period: number = 14): number[] {

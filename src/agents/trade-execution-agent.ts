@@ -373,7 +373,7 @@ export class TradeExecutionAgent {
     positionSize = Math.min(positionSize, settings.maxPositionSize);
 
     // Calculate contracts
-    const contractPrice = option.midPrice * 100; // Options are per share, 100 shares per contract
+    const contractPrice = (option.midPrice || ((option.bid + option.ask) / 2)) * 100; // Options are per share, 100 shares per contract
     const contracts = Math.floor(positionSize / contractPrice);
     const totalCost = contracts * contractPrice;
 
@@ -392,7 +392,7 @@ export class TradeExecutionAgent {
     action: string,
     settings: ExecutionSettings
   ): number {
-    const midPrice = option.midPrice;
+    const midPrice = option.midPrice || ((option.bid + option.ask) / 2);
 
     if (settings.orderType === 'MARKET') {
       return midPrice;

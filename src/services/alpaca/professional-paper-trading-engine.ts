@@ -159,6 +159,39 @@ export interface PaperTradingStatus {
 }
 
 export class ProfessionalPaperTradingEngine extends EventEmitter {
+
+  // Static methods for integration with trade-execution-agent
+  static async submitOrder(params: any): Promise<any> {
+    console.log('🔄 ProfessionalPaperTradingEngine.submitOrder (placeholder):', params);
+    // TODO: Implement actual order submission for naked options
+    return {
+      orderId: `placeholder_${Date.now()}`,
+      status: 'filled',
+      filledQty: params.qty,
+      filledAvgPrice: 1.50 // Placeholder price
+    };
+  }
+
+  static async getAccount(): Promise<any> {
+    console.log('🔄 ProfessionalPaperTradingEngine.getAccount (placeholder)');
+    return {
+      equity: 25000,
+      cash: 25000,
+      portfolio_value: 25000
+    };
+  }
+
+  static async getPositions(): Promise<any[]> {
+    console.log('🔄 ProfessionalPaperTradingEngine.getPositions (placeholder)');
+    return [];
+  }
+
+  static async getOrders(): Promise<any[]> {
+    console.log('🔄 ProfessionalPaperTradingEngine.getOrders (placeholder)');
+    return [];
+  }
+
+  // Instance methods (existing functionality)
   private positions = new Map<string, LivePosition>();
   private isRunning = false;
   private tradingInterval?: NodeJS.Timeout;

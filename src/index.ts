@@ -184,7 +184,7 @@ export class SpyTradingSystem {
         return;
       }
 
-      console.log(`   Selected: ${strikeSelection.optimalStrike.symbol} (Score: ${strikeSelection.score})`);
+      console.log(`   Selected: $${strikeSelection.optimalStrike} (Score: ${strikeSelection.confidence}%)`);
 
       // Calculate position size
       const positionSize = DynamicProfitManager.recommendPositionSize(
@@ -193,7 +193,7 @@ export class SpyTradingSystem {
         0 // current P&L
       );
 
-      console.log(`   Position size: ${positionSize.contracts} contracts`);
+      console.log(`   Position size: ${positionSize} contracts`);
 
       // TODO: Execute actual trade with Alpaca
       console.log('   🚀 Trade execution planned (implement actual execution)');
