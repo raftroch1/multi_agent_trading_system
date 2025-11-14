@@ -11,13 +11,15 @@
  */
 
 import { EventEmitter } from 'events';
-import AlpacaRealTimeStream, { RealTimeMarketData, RealTimeNewsData, RealTimeOptionData } from './alpaca-real-time-stream';
-import { alpacaClient } from './alpaca';
-import { AdaptiveStrategySelector } from './adaptive-strategy-selector';
-import { GreeksEngine } from './greeks-engine';
-import { TransactionCostEngine } from './transaction-cost-engine';
-import { TechnicalAnalysis } from './technical-indicators';
-import { OptionsChain, MarketData } from './types';
+// TODO: Implement real-time streaming for naked options
+// import AlpacaRealTimeStream, { RealTimeMarketData, RealTimeNewsData, RealTimeOptionData } from './alpaca-real-time-stream';
+import { alpacaClient } from './alpaca-client';
+// TODO: Replace with naked options strategy selector
+// import { AdaptiveStrategySelector } from './adaptive-strategy-selector';
+import { GreeksEngine } from '../../utils/greeks-engine';
+import { TransactionCostEngine } from '../../utils/transaction-cost-engine';
+import { TechnicalAnalysis } from '../../utils/technical-indicators';
+import { OptionsChain, MarketData } from '../../types';
 
 export interface EnhancedLivePosition {
   id: string;

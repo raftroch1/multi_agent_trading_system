@@ -13,7 +13,7 @@
  * - Hidden buying/selling pressure
  */
 
-import { MarketData, OptionsChain, TradeSignal } from './types';
+import { MarketData, OptionsChain, TradeSignal } from '../types';
 
 export interface DeltaBar {
   close: number;

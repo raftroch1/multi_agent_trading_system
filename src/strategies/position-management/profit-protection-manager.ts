@@ -10,7 +10,7 @@ import {
   OptionsChain,
   DynamicExitSignal,
   MarketData
-} from './types';
+} from '../../types';
 
 export interface ProfitProtectionThresholds {
   // Profit targets

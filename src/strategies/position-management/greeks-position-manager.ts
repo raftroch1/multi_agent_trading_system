@@ -11,7 +11,7 @@ import {
   DynamicExitSignal,
   GreeksRiskProfile,
   MarketData
-} from './types';
+} from '../../types';
 
 export interface GreeksThresholds {
   // Delta thresholds

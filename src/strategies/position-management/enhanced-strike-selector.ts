@@ -11,7 +11,7 @@
  * Focus: Slightly OTM options for optimal risk/reward on 0-DTE trades
  */
 
-import { OptionsChain, MarketData } from './types';
+import { OptionsChain, MarketData } from '../../types';
 
 export interface StrikeScore {
   strike: number;

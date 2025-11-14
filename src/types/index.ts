@@ -262,6 +262,28 @@ export interface TradeSignal {
   spread?: BullPutSpread | BearCallSpread | IronCondor;
 }
 
+export interface AgentSignal {
+  agent: string;
+  signal: 'BUY_CALL' | 'BUY_PUT' | 'NO_TRADE';
+  confidence: number;
+  reasoning: string[];
+  data: any;
+}
+
+export interface ConsensusSignal {
+  finalSignal: 'BUY_CALL' | 'BUY_PUT' | 'NO_TRADE';
+  overallConfidence: number;
+  agentVotes: {
+    BUY_CALL: number;
+    BUY_PUT: number;
+    NO_TRADE: number;
+  };
+  consensusReasoning: string[];
+  agentSignals: AgentSignal[];
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  recommendation: string;
+}
+
 export interface PerformanceMetrics {
   totalReturn: number;
   totalReturnPercent: number;

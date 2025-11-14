@@ -5,7 +5,7 @@
  * Focus on single-leg options trading
  */
 
-import { AlpacaCredentials, MarketData, OptionsChain } from './types';
+import { AlpacaCredentials, MarketData, OptionsChain } from '../../types';
 import axios from 'axios';
 
 class AlpacaClient {

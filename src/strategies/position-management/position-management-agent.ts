@@ -5,7 +5,7 @@
  * for 0-DTE options trading strategies
  */
 
-import { Trade, Position, MarketData, OptionsChain } from './types';
+import { Trade, Position, MarketData, OptionsChain } from '../../types';
 
 export interface PositionManagementSettings {
   // Profit targets

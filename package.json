@@ -56,7 +56,6 @@
     "@types/ws": "^8.5.0",
     "dotenv": "^16.6.1",
     "ts-node": "^10.9.0",
-    "typescript": "^5.0.0",
     "ws": "^8.14.0"
   },
   "engines": {
@@ -82,5 +81,8 @@
   "bugs": {
     "url": "https://github.com/raftroch1/Alpaca_Dashboard_TS/issues"
   },
-  "homepage": "https://github.com/raftroch1/Alpaca_Dashboard_TS#readme"
+  "homepage": "https://github.com/raftroch1/Alpaca_Dashboard_TS#readme",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
 }

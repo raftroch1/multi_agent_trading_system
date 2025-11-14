@@ -11,7 +11,7 @@
  * - Support/resistance levels from volume nodes
  */
 
-import { MarketData, OptionsChain, TradeSignal } from './types';
+import { MarketData, OptionsChain, TradeSignal } from '../types';
 
 export interface VolumeProfileLevel {
   price: number;

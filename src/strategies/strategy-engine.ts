@@ -1,4 +1,4 @@
-import { Strategy, TechnicalIndicators } from './types';
+import { Strategy, TechnicalIndicators } from '../types';
 
 export interface ExitCondition {
   shouldExit: boolean;

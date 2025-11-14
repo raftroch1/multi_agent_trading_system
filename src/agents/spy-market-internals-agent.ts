@@ -9,7 +9,7 @@
  * - Option contract specific volume analysis
  */
 
-import { MarketData, OptionsChain, TradeSignal } from './types';
+import { MarketData, OptionsChain, TradeSignal } from '../types';
 
 export interface MarketInternals {
   tick: number;

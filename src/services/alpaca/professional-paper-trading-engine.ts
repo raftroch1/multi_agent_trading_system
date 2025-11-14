@@ -17,16 +17,19 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
-import { alpacaClient } from './alpaca';
-import { AdaptiveStrategySelector } from './adaptive-strategy-selector';
-import { GreeksEngine, GreeksSnapshot } from './greeks-engine';
-import { TransactionCostEngine, FillSimulation } from './transaction-cost-engine';
-import { TechnicalAnalysis } from './technical-indicators';
-import { BullPutSpreadStrategy } from './bull-put-spread-strategy';
-import { BearCallSpreadStrategy } from './bear-call-spread-strategy';
-import { IronCondorStrategy } from './iron-condor-strategy';
-import { MarketData, OptionsChain, BullPutSpread, BearCallSpread, IronCondor } from './types';
-import EnhancedPositionManager from './enhanced-position-manager';
+import { alpacaClient } from './alpaca-client';
+// TODO: Replace with naked options strategy selector
+// import { AdaptiveStrategySelector } from './adaptive-strategy-selector';
+import { GreeksEngine, GreeksSnapshot } from '../../utils/greeks-engine';
+import { TransactionCostEngine, FillSimulation } from '../../utils/transaction-cost-engine';
+import { TechnicalAnalysis } from '../../utils/technical-indicators';
+// TODO: Replace with naked options strategies
+// import { BullPutSpreadStrategy } from './bull-put-spread-strategy';
+// import { BearCallSpreadStrategy } from './bear-call-spread-strategy';
+// import { IronCondorStrategy } from './iron-condor-strategy';
+import { MarketData, OptionsChain } from '../../types'; // Removed spread types
+// TODO: Update enhanced position manager import
+// import EnhancedPositionManager from './enhanced-position-manager';
 
 // TIMEFRAME CONFIGURATION (matches minute bar system)
 export type TimeframeOption = '1Min' | '5Min' | '15Min' | '1Day';
@@ -1086,7 +1089,7 @@ export class ProfessionalPaperTradingEngine extends EventEmitter {
         console.log(`🎯 DELTA-BASED SELECTION: Finding options with target delta 0.45-0.55 for 0-DTE`);
 
         // Fetch real options chain for delta-based selection
-        const { alpacaClient } = await import('./alpaca');
+        const { alpacaClient } = await import('./alpaca-client');
         const optionsChain = await alpacaClient.getOptionsChain('SPY');
 
         // Filter for near-term expiration (0-2 days) and correct option type
@@ -1614,7 +1617,7 @@ export class ProfessionalPaperTradingEngine extends EventEmitter {
 
     try {
       // 🔥 REAL ALPACA INTEGRATION: Close actual position on Alpaca
-      const { alpacaClient } = await import('./alpaca');
+      const { alpacaClient } = await import('./alpaca-client');
 
       console.log(`🔄 Closing position ${positionId} on Alpaca: ${reason}`);
 
@@ -1900,7 +1903,7 @@ export class ProfessionalPaperTradingEngine extends EventEmitter {
       );
 
       // Import Alpaca client
-      const { alpacaClient } = await import('./alpaca');
+      const { alpacaClient } = await import('./alpaca-client');
 
       // Convert strategy to option symbol format (SPY options)
       // Format: SPYYYMDDC(strike) for calls, SPYYYMDDP(strike) for puts

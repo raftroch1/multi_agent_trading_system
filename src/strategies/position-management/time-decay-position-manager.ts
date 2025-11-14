@@ -10,7 +10,7 @@ import {
   OptionsChain,
   DynamicExitSignal,
   MarketData
-} from './types';
+} from '../../types';
 
 export interface TimeDecayThresholds {
   // Time-based thresholds (minutes)

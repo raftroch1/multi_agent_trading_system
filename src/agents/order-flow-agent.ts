@@ -12,7 +12,7 @@
  * - Real-time flow momentum tracking
  */
 
-import { MarketData, OptionsChain } from './types';
+import { MarketData, OptionsChain } from '../types';
 
 export interface OrderFlowBar {
   timestamp: Date;

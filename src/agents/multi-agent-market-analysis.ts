@@ -5,9 +5,9 @@
  * Each agent focuses on specific aspects of market analysis
  */
 
-import { MarketData, TechnicalIndicators, OptionsChain, TradeSignal } from './types';
-import { TechnicalAnalysis } from './technical-indicators';
-import { GreeksEngine } from './greeks-engine';
+import { MarketData, TechnicalIndicators, OptionsChain, TradeSignal } from '../types';
+import { TechnicalAnalysis } from '../utils/technical-indicators';
+import { GreeksEngine } from '../utils/greeks-engine';
 import { SPYMarketInternalsAgent } from './spy-market-internals-agent';
 import { MultiTimeframeAnalystAgent } from './multi-timeframe-analyst-agent';
 import { VWAPAnalystAgent } from './vwap-analyst-agent';

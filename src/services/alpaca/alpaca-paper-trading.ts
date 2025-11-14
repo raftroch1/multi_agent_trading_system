@@ -6,13 +6,13 @@
  * Patterns based on: options-zero-dte.ipynb and options-trading-mleg.ipynb
  */
 
-import { alpacaClient } from './alpaca';
+import { alpacaClient } from './alpaca-client';
 import { 
   BullPutSpread, 
   BearCallSpread, 
   IronCondor,
   OptionsChain 
-} from './types';
+} from '../../types';
 
 export interface AlpacaOrderLeg {
   symbol: string;

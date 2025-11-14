@@ -12,8 +12,8 @@
  * - Trend alignment and momentum confluence
  */
 
-import { MarketData, OptionsChain, TradeSignal } from './types';
-import { TechnicalAnalysis } from './technical-indicators';
+import { MarketData, OptionsChain, TradeSignal } from '../types';
+import { TechnicalAnalysis } from '../utils/technical-indicators';
 
 export interface TimeframeAnalysis {
   timeframe: '1Min' | '5Min' | '15Min';

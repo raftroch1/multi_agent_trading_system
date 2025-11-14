@@ -10,7 +10,7 @@
  * Target: $300/day on $25,000 account (1.2% daily return)
  */
 
-import { Position, MarketData, OptionsChain } from './types';
+import { Position, MarketData, OptionsChain } from '../../types';
 
 export interface DynamicProfitSettings {
   accountSize: number;

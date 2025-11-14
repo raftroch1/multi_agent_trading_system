@@ -15,9 +15,9 @@ import {
   PositionManagementReport,
   MarketData,
   OptionsChain
-} from './types';
+} from '../../types';
 
-import { GreeksEngine, GreeksSnapshot } from './greeks-engine';
+import { GreeksEngine, GreeksSnapshot } from '../../utils/greeks-engine';
 
 export interface DynamicPositionManagerSettings {
   // Real-time monitoring

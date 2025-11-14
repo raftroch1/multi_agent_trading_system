@@ -1,5 +1,5 @@
 
-import { MarketData, TechnicalIndicators } from './types';
+import { MarketData, TechnicalIndicators } from '../types';
 
 export class TechnicalAnalysis {
   

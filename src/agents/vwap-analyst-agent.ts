@@ -12,7 +12,7 @@
  * - Standard deviation bands around VWAP
  */
 
-import { MarketData, OptionsChain, TradeSignal } from './types';
+import { MarketData, OptionsChain, TradeSignal } from '../types';
 
 export interface VWAPAnalysis {
   vwap: number;

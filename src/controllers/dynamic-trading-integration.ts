@@ -13,11 +13,11 @@ import {
   OptionsChain,
   TradeSignal,
   AlpacaOrder
-} from './types';
+} from '../types';
 
-import { DynamicPositionManager } from './dynamic-position-manager';
-import { ProfessionalPaperTradingEngine } from './professional-paper-trading-engine';
-import { TradeExecutionAgent } from './trade-execution-agent';
+import { DynamicPositionManager } from '../strategies/position-management/dynamic-position-manager';
+import { ProfessionalPaperTradingEngine } from '../services/alpaca/professional-paper-trading-engine';
+import { TradeExecutionAgent } from '../agents/trade-execution-agent';
 
 export interface DynamicTradingSettings {
   // Integration settings
@@ -210,8 +210,10 @@ export class DynamicTradingIntegration {
   private static async getCurrentMarketData(): Promise<MarketData[]> {
     try {
       // Get SPY data from the existing system
-      const { SPYMarketDataAgent } = await import('./spy-market-data-agent');
-      return await SPYMarketDataAgent.getMarketData('1Min', 100); // Last 100 minutes
+      // TODO: Replace with actual market data agent
+    // const { SPYMarketDataAgent } = await import('../agents/spy-market-data-agent');
+    // return await SPYMarketDataAgent.getMarketData('1Min', 100); // Last 100 minutes
+    throw new Error('SPYMarketDataAgent not implemented - using placeholder');
 
     } catch (error) {
       console.error(`❌ Failed to get market data: ${error}`);
@@ -225,8 +227,10 @@ export class DynamicTradingIntegration {
   private static async getCurrentOptionsChain(): Promise<OptionsChain[]> {
     try {
       // Get options data from the existing system
-      const { SPYOptionsAgent } = await import('./spy-options-agent');
-      const optionsData = await SPYOptionsAgent.getOptionsChain();
+        // TODO: Replace with actual options agent
+    // const { SPYOptionsAgent } = await import('../agents/spy-options-agent');
+    // const optionsData = await SPYOptionsAgent.getOptionsChain();
+    throw new Error('SPYOptionsAgent not implemented - using placeholder');
 
       return optionsData.map(opt => ({
         symbol: opt.symbol,

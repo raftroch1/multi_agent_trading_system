@@ -13,8 +13,8 @@ import {
   TradeSignal,
   AlpacaOrder,
   OrderStatus
-} from './types';
-import { PositionManagementAgent, PositionManagementDecision } from './position-management-agent';
+} from '../types';
+import { PositionManagementAgent, PositionManagementDecision } from '../strategies/position-management/position-management-agent';
 
 export interface ExecutionSettings {
   // Order execution
@@ -476,7 +476,7 @@ export class TradeExecutionAgent {
   ): Promise<ExecutionResult> {
     try {
       // Import the professional paper trading engine
-      const { ProfessionalPaperTradingEngine } = await import('./professional-paper-trading-engine');
+      const { ProfessionalPaperTradingEngine } = await import('../services/alpaca/professional-paper-trading-engine');
 
       // Execute the order through the real Alpaca integration
       const orderResult = await ProfessionalPaperTradingEngine.submitOrder({
@@ -573,7 +573,7 @@ export class TradeExecutionAgent {
     riskExposure: number;
   }> {
     try {
-      const { ProfessionalPaperTradingEngine } = await import('./professional-paper-trading-engine');
+      const { ProfessionalPaperTradingEngine } = await import('../services/alpaca/professional-paper-trading-engine');
 
       // Get real account status from Alpaca
       const accountInfo = await ProfessionalPaperTradingEngine.getAccount();

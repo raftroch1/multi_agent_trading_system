@@ -13,9 +13,9 @@
  * ONLY enhances position exit decisions
  */
 
-import { LivePosition } from './professional-paper-trading-engine';
+import { LivePosition } from '../../services/alpaca/professional-paper-trading-engine';
 import { PositionManagementOrchestrator } from './position-orchestrator';
-import { GreeksEngine, GreeksSnapshot } from './greeks-engine';
+import { GreeksEngine, GreeksSnapshot } from '../../utils/greeks-engine';
 
 export interface ExitDecision {
   shouldExit: boolean;

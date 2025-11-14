@@ -10,7 +10,7 @@ import {
   OptionsChain,
   DynamicExitSignal,
   MarketData
-} from './types';
+} from '../../types';
 
 import {
   GreeksBasedPositionManager,

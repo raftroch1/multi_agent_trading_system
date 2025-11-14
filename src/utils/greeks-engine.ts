@@ -3,7 +3,7 @@
  * Dynamic tracking of option Greeks throughout trade lifecycle
  */
 
-import { OptionsChain, MarketData } from './types';
+import { OptionsChain, MarketData } from '../types';
 
 export interface GreeksSnapshot {
   timestamp: Date;

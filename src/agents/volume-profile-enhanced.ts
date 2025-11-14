@@ -12,7 +12,7 @@
  * - Volume imbalance detection at key strikes
  */
 
-import { MarketData, OptionsChain } from './types';
+import { MarketData, OptionsChain } from '../types';
 
 export interface VolumeNode {
   strike: number;
