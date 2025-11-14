@@ -1,6 +1,7 @@
 {
   "name": "alpaca-dashboard-ts",
   "version": "1.0.0",
+  "type": "module",
   "description": "Institutional-grade 0-DTE options trading system with advanced Greeks-based risk management",
   "main": "test-enhanced-backtest.ts",
   "scripts": {
