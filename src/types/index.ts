@@ -290,6 +290,18 @@ export interface ConsensusSignal {
   recommendation: string;
 }
 
+export interface AlpacaOrder {
+  id: string;
+  status: string;
+  symbol: string;
+}
+
+export interface OrderStatus {
+  id: string;
+  status: string;
+  symbol: string;
+}
+
 export interface PerformanceMetrics {
   totalReturn: number;
   totalReturnPercent: number;

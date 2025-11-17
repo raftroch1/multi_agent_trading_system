@@ -14,24 +14,27 @@ class AlpacaClient {
   constructor() {
     this.credentials = {
       apiKey: process.env.ALPACA_API_KEY || '',
-      apiSecret: process.env.ALPACA_API_SECRET || '',
+      apiSecret: process.env.ALPACA_SECRET_KEY || '',
       baseUrl: process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     };
 
     if (!this.credentials.apiKey || !this.credentials.apiSecret) {
       throw new Error(
-        'Alpaca API credentials not found. Please set ALPACA_API_KEY and ALPACA_API_SECRET in .env file.'
+        'Alpaca API credentials not found. Please set ALPACA_API_KEY and ALPACA_SECRET_KEY in .env file.'
       );
     }
   }
 
   // Get proper headers for Alpaca API as per documentation
+  // Enhanced to prevent 403 forbidden errors
   private getHeaders() {
     return {
       'APCA-API-KEY-ID': this.credentials.apiKey,
       'APCA-API-SECRET-KEY': this.credentials.apiSecret,
-      Accept: 'application/json',
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'User-Agent': 'AlpacaTradingSystem/1.0',
+      'Connection': 'keep-alive',
     };
   }
 
@@ -43,8 +46,15 @@ class AlpacaClient {
       });
       console.log('✅ Alpaca connection successful');
       return response.status === 200;
-    } catch (error) {
-      console.error('❌ Alpaca connection failed:', error);
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        console.error('❌ 403 Forbidden: Check your API credentials and permissions');
+        console.error('   Ensure your keys have options trading enabled for paper trading');
+      } else if (error.response?.status === 401) {
+        console.error('❌ 401 Unauthorized: Invalid API credentials');
+      } else {
+        console.error('❌ Alpaca connection failed:', error.response?.data || error.message);
+      }
       return false;
     }
   }
@@ -398,6 +408,18 @@ class AlpacaClient {
 
       if (!response.ok) {
         const errorText = await response.text();
+
+        // Enhanced 403 error handling
+        if (response.status === 403) {
+          console.error('❌ 403 Forbidden - Possible causes:');
+          console.error('   - API keys do not have options trading permissions');
+          console.error('   - Paper trading account not enabled for options');
+          console.error('   - Invalid or expired API credentials');
+          console.error('   - Market hours restriction (options trading only during market hours)');
+
+          throw new Error(`403 Forbidden: ${errorText || 'Insufficient permissions for options trading'}`);
+        }
+
         throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
@@ -448,6 +470,18 @@ class AlpacaClient {
 
       if (!response.ok) {
         const errorText = await response.text();
+
+        // Enhanced 403 error handling
+        if (response.status === 403) {
+          console.error('❌ 403 Forbidden - Possible causes:');
+          console.error('   - API keys do not have options trading permissions');
+          console.error('   - Paper trading account not enabled for options');
+          console.error('   - Invalid or expired API credentials');
+          console.error('   - Market hours restriction (options trading only during market hours)');
+
+          throw new Error(`403 Forbidden: ${errorText || 'Insufficient permissions for options trading'}`);
+        }
+
         throw new Error(`Alpaca API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 

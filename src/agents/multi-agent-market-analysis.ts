@@ -1052,3 +1052,6 @@ export class ConsensusEngine {
     }
   }
 }
+
+// Export the main class for the controller
+export { MultiAgentMarketAnalysis };

@@ -173,7 +173,7 @@ export class PositionManagementAgent {
   /**
    * Analyze individual position status and risk factors
    */
-  private static analyzePosition(
+  public static analyzePosition(
     position: Position,
     marketData: MarketData[],
     optionsChain: OptionsChain[],
