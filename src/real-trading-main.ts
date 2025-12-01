@@ -7,6 +7,10 @@
  * Uses real Alpaca paper trading API and live market data
  */
 
+// Load environment variables
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { RealTradingController } from './controllers/real-trading-controller';
 
 async function main() {

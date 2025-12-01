@@ -15,7 +15,7 @@ import {
   PerformanceMetrics
 } from '../types';
 
-import { MultiAgentMarketAnalysis } from '../agents/multi-agent-market-analysis';
+import { ConsensusEngine } from '../agents/multi-agent-market-analysis';
 import { EnhancedStrikeSelector } from '../strategies/position-management/enhanced-strike-selector';
 import { PositionManagementAgent } from '../strategies/position-management/position-management-agent';
 import { alpacaClient } from '../services/alpaca/alpaca-client';
@@ -330,10 +330,10 @@ export class RealTradingController {
 
       // Get current account info
       const account = await alpacaClient.getAccount();
-      this.session.accountValue = account.equity || 25000;
+      this.session.accountValue = parseFloat(account.equity) || 25000;
 
       console.log(`✅ Alpaca connection successful`);
-      console.log(`📊 Account equity: $${this.session.accountValue.toFixed(2)}`);
+      console.log(`📈 Account equity: $${this.session.accountValue.toFixed(2)}`);
 
       // Get current positions
       const positions = await alpacaClient.getPositions();
@@ -362,10 +362,13 @@ export class RealTradingController {
         console.log('\n📊 Fetching live market data...');
 
         // Fetch real market data from Alpaca
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - 100 * 60 * 1000); // Last 100 minutes
         const marketData = await alpacaClient.getMarketData(
           this.config.symbol,
-          '1Min',
-          100 // Last 100 minutes
+          startDate,
+          endDate,
+          '1Min'
         );
 
         console.log(`   Received ${marketData.length} candles`);
@@ -470,7 +473,7 @@ export class RealTradingController {
   ): Promise<ConsensusSignal> {
 
     // Use existing multi-agent market analysis
-    const consensus = MultiAgentMarketAnalysis.generateConsensus(marketData, optionsChain);
+    const consensus = ConsensusEngine.generateConsensus(marketData, optionsChain);
 
     return consensus;
   }
@@ -488,7 +491,15 @@ export class RealTradingController {
       console.log('\n💰 EXECUTING REAL PAPER TRADE');
       console.log('============================');
 
-      const currentPrice = marketData[marketData.length - 1].close;
+      if (!marketData || marketData.length === 0) {
+        throw new Error('No market data available');
+      }
+
+      const lastCandle = marketData[marketData.length - 1];
+      if (!lastCandle) {
+        throw new Error('No market data in array');
+      }
+      const currentPrice = lastCandle.close;
       const action = consensus.finalSignal;
       const side = action === 'BUY_CALL' ? 'CALL' : 'PUT';
 
@@ -540,20 +551,15 @@ export class RealTradingController {
 
       // Execute real paper trade through Alpaca
       const orderResult = await alpacaClient.submitNakedOptionOrder({
-        symbol: this.config.symbol,
+        symbol: selectedOption.symbol, // Use the full option symbol
         side: action === 'BUY_CALL' ? 'buy' : 'sell',
-        type: 'market',
-        qty: positionSize.toString(),
-        time_in_force: 'day',
-        order_class: 'simple',
-        // For options, specify the strike and expiration
-        strike: strikeSelection.optimalStrike,
-        expiration: selectedOption.expiration,
-        option_side: side.toLowerCase()
+        quantity: positionSize,
+        orderType: 'market',
+        timeInForce: 'day'
       });
 
       console.log(`✅ Order submitted successfully!`);
-      console.log(`   Order ID: ${orderResult.orderId || 'pending'}`);
+      console.log(`   Order ID: ${orderResult.id || 'pending'}`);
       console.log(`   Status: ${orderResult.status}`);
 
       this.session.tradesPlaced++;
@@ -604,29 +610,30 @@ export class RealTradingController {
           quantity: parseFloat(position.qty),
           entryDate: new Date(),
           entryPrice: parseFloat(position.avg_entry_price || '0'),
-          status: 'OPEN',
-          createdAt: new Date()
+          status: 'OPEN'
         };
 
-        // Use position management agent to check for exits
-        const exitDecision = PositionManagementAgent.analyzePosition(
+        // Get current price for position
+        const lastBar = marketData.length > 0 ? marketData[marketData.length - 1] : null;
+        const currentPrice = lastBar ? lastBar.close : ourPosition.entryPrice;
+
+        // Use DynamicProfitManager for position analysis
+        const positionAnalysis = DynamicProfitManager.analyzePosition(
           ourPosition,
+          currentPrice,
           marketData,
-          optionsChain,
-          {
-            profitTargetPercent: 50,
-            stopLossPercent: 30,
-            maxLossPercent: 0.1
-          }
+          optionsChain
         );
 
-        if (exitDecision.action !== 'HOLD') {
-          console.log(`🔄 Position exit signal: ${exitDecision.action}`);
-          console.log(`   Reason: ${exitDecision.reason}`);
-          console.log(`   Urgency: ${exitDecision.urgency}`);
+        const exitRecommendation = positionAnalysis.exitRecommendation;
+        
+        if (exitRecommendation && exitRecommendation.action !== 'HOLD') {
+          console.log(`🔄 Position exit signal: ${exitRecommendation.action}`);
+          console.log(`   Reason: ${exitRecommendation.reason || 'Exit recommended'}`);
+          console.log(`   Unrealized P&L: $${positionAnalysis.unrealizedPnL || 0}`);
 
           // Close the position
-          await this.closePosition(position, exitDecision);
+          await this.closePosition(position, exitRecommendation);
         }
       }
     } catch (error) {
@@ -645,13 +652,13 @@ export class RealTradingController {
     try {
       const closeResult = await alpacaClient.closeNakedOptionPosition({
         symbol: position.symbol,
-        side: position.side === 'long' ? 'sell' : 'buy',
-        qty: Math.abs(parseFloat(position.qty)).toString(),
-        reason: exitDecision.reason
+        quantity: Math.abs(parseFloat(position.qty)),
+        orderType: 'market',
+        timeInForce: 'day'
       });
 
       console.log(`✅ Position closed successfully!`);
-      console.log(`   Order ID: ${closeResult.orderId || 'pending'}`);
+      console.log(`   Order ID: ${closeResult.id || 'pending'}`);
 
       // Phase 1: Set cooldown after closing position
       this.setCooldownForSymbol(position.symbol);

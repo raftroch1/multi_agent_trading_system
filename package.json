@@ -1,7 +1,6 @@
 {
   "name": "alpaca-dashboard-ts",
   "version": "1.0.0",
-  "type": "module",
   "description": "Institutional-grade 0-DTE options trading system with advanced Greeks-based risk management",
   "main": "test-enhanced-backtest.ts",
   "scripts": {
@@ -18,7 +17,7 @@
     "test:3day": "ts-node test-3day-minute-bars.ts",
     "paper": "ts-node run-paper-trading.ts",
     "paper:1min": "ts-node run-paper-trading.ts --1min",
-    "trade:real": "ts-node src/real-trading-main.ts",
+    "trade:real": "ts-node --project tsconfig.run.json src/real-trading-main.ts",
     "trade:real:safe": "ts-node-esm src/real-trading-main.ts",
     "connect:test": "ts-node-esm -e \"import { alpacaClient } from './src/services/alpaca/alpaca-client.js'; alpacaClient.testConnection().then(r => console.log('Connection:', r))\"",
     "paper:5min": "ts-node run-paper-trading.ts --5min",
