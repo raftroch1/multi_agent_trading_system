@@ -20,6 +20,22 @@ export interface DynamicProfitSettings {
   trailingStopActivation: number; // Activate after X% profit (e.g., 30%)
   profitLockLevels: number[];     // Profit levels to lock (e.g., [30, 50, 75, 100])
   profitLockPercents: number[];   // % to lock at each level (e.g., [25, 25, 25, 25])
+  
+  // Phase 1: Minimum Hold Time Configuration
+  minimumHoldTimeMinutes: number; // 5-minute minimum hold time
+  tieredExits: {
+    earlyPhase: {                 // 0-5 minutes: Only emergency stops
+      durationMinutes: number;
+      emergencyStopPercent: number; // Exit only on >5% loss
+    };
+    midPhase: {                   // 5-10 minutes: Standard stops + 30% profit
+      durationMinutes: number;
+      profitTargetPercent: number;
+    };
+    latePhase: {                  // 10+ minutes: All exit conditions
+      durationMinutes: number;
+    };
+  };
 }
 
 export interface TrailingStopState {
@@ -50,6 +66,8 @@ export interface PositionAnalysis {
   trailingStop: TrailingStopState;
   exitRecommendation: DynamicExitRecommendation;
   timeToExpiry: number;            // Minutes
+  timeInTrade: number;             // Phase 1: Minutes since entry
+  exitPhase: 'EARLY' | 'MID' | 'LATE';  // Phase 1: Current exit phase
   dailyProgress: {
     currentProfit: number;
     targetProgress: number;        // % of daily target achieved
@@ -70,7 +88,23 @@ export class DynamicProfitManager {
     trailingStopPercent: 25,  // Trail by 25%
     trailingStopActivation: 30,  // Activate at 30% profit
     profitLockLevels: [30, 50, 75, 100],
-    profitLockPercents: [25, 25, 25, 25]
+    profitLockPercents: [25, 25, 25, 25],
+    
+    // Phase 1: Minimum Hold Time Configuration
+    minimumHoldTimeMinutes: 5,
+    tieredExits: {
+      earlyPhase: {
+        durationMinutes: 5,
+        emergencyStopPercent: -5  // Only exit on >5% loss
+      },
+      midPhase: {
+        durationMinutes: 10,
+        profitTargetPercent: 30  // Exit at 30% profit
+      },
+      latePhase: {
+        durationMinutes: 10  // After 10 min, all exits active
+      }
+    }
   };
 
   private static settings: DynamicProfitSettings = { ...this.DEFAULT_SETTINGS };
@@ -128,7 +162,13 @@ export class DynamicProfitManager {
     // Calculate time to expiry
     const timeToExpiry = this.getTimeToExpiry(position.expiration);
 
-    // Generate exit recommendation
+    // Phase 1: Calculate time in trade
+    const timeInTrade = this.getTimeInTrade(position.entryDate);
+
+    // Phase 1: Determine exit phase
+    const exitPhase = this.determineExitPhase(timeInTrade);
+
+    // Generate exit recommendation (with Phase 1 tiered logic)
     const exitRecommendation = this.generateExitRecommendation(
       position,
       currentPrice,
@@ -138,6 +178,8 @@ export class DynamicProfitManager {
       stopLoss,
       trailingStop,
       timeToExpiry,
+      timeInTrade,
+      exitPhase,
       marketData
     );
 
@@ -154,6 +196,8 @@ export class DynamicProfitManager {
       trailingStop,
       exitRecommendation,
       timeToExpiry,
+      timeInTrade,
+      exitPhase,
       dailyProgress
     };
   }
@@ -229,6 +273,30 @@ export class DynamicProfitManager {
   }
 
   /**
+   * Phase 1: Calculate time in trade (minutes since entry)
+   */
+  private static getTimeInTrade(entryDate: Date): number {
+    const now = new Date();
+    const timeInTrade = now.getTime() - entryDate.getTime();
+    return Math.max(0, timeInTrade / (1000 * 60));
+  }
+
+  /**
+   * Phase 1: Determine which exit phase the position is in
+   */
+  private static determineExitPhase(timeInTrade: number): 'EARLY' | 'MID' | 'LATE' {
+    const { earlyPhase, midPhase } = this.settings.tieredExits;
+
+    if (timeInTrade < earlyPhase.durationMinutes) {
+      return 'EARLY';
+    } else if (timeInTrade < midPhase.durationMinutes) {
+      return 'MID';
+    } else {
+      return 'LATE';
+    }
+  }
+
+  /**
    * Update trailing stop for position
    */
   private static updateTrailingStop(
@@ -277,7 +345,7 @@ export class DynamicProfitManager {
   }
 
   /**
-   * Generate exit recommendation
+   * Generate exit recommendation with Phase 1 tiered exit logic
    */
   private static generateExitRecommendation(
     position: Position,
@@ -288,8 +356,83 @@ export class DynamicProfitManager {
     stopLoss: number,
     trailingStop: TrailingStopState,
     timeToExpiry: number,
+    timeInTrade: number,
+    exitPhase: 'EARLY' | 'MID' | 'LATE',
     marketData: MarketData[]
   ): DynamicExitRecommendation {
+    
+    // ========================================================================
+    // PHASE 1 TIERED EXIT LOGIC
+    // ========================================================================
+    
+    console.log(`\n🕐 Position Hold Time Analysis:`);
+    console.log(`   Time in trade: ${timeInTrade.toFixed(1)} minutes`);
+    console.log(`   Exit phase: ${exitPhase}`);
+    console.log(`   Current P&L: ${unrealizedPnLPercent.toFixed(1)}%`);
+
+    // EARLY PHASE (0-5 minutes): Only emergency stops
+    if (exitPhase === 'EARLY') {
+      const emergencyStop = this.settings.tieredExits.earlyPhase.emergencyStopPercent;
+      
+      if (unrealizedPnLPercent <= emergencyStop) {
+        return {
+          action: 'EXIT_FULL',
+          urgency: 'CRITICAL',
+          reason: `EARLY PHASE: Emergency stop hit at ${unrealizedPnLPercent.toFixed(1)}% (threshold: ${emergencyStop}%)`,
+          confidence: 100
+        };
+      }
+
+      // In early phase, hold position unless emergency stop hit
+      return {
+        action: 'HOLD',
+        urgency: 'LOW',
+        reason: `EARLY PHASE: Holding position (${timeInTrade.toFixed(1)}/5 min). Only emergency stops active.`,
+        confidence: 90
+      };
+    }
+
+    // MID PHASE (5-10 minutes): Standard stops + 30% profit target
+    if (exitPhase === 'MID') {
+      const midPhaseProfit = this.settings.tieredExits.midPhase.profitTargetPercent;
+
+      // Check for 30% profit target
+      if (unrealizedPnLPercent >= midPhaseProfit) {
+        return {
+          action: 'EXIT_FULL',
+          urgency: 'HIGH',
+          reason: `MID PHASE: Profit target reached at ${unrealizedPnLPercent.toFixed(1)}% (target: ${midPhaseProfit}%)`,
+          confidence: 90
+        };
+      }
+
+      // Check standard stop loss
+      if (unrealizedPnLPercent <= stopLoss) {
+        return {
+          action: 'EXIT_FULL',
+          urgency: 'CRITICAL',
+          reason: `MID PHASE: Stop loss hit at ${unrealizedPnLPercent.toFixed(1)}%`,
+          confidence: 95
+        };
+      }
+
+      // Continue holding in mid phase
+      return {
+        action: 'HOLD',
+        urgency: 'LOW',
+        reason: `MID PHASE: Position maturing (${timeInTrade.toFixed(1)}/10 min). Standard exits active.`,
+        confidence: 80
+      };
+    }
+
+    // LATE PHASE (10+ minutes): All exit conditions active
+    // From here, use the standard exit logic below
+    console.log(`   LATE PHASE: All exit conditions now active`);
+
+    // ========================================================================
+    // STANDARD EXIT LOGIC (applies in LATE phase)
+    // ========================================================================
+
     // Check stop loss
     if (unrealizedPnLPercent <= stopLoss) {
       return {
@@ -324,6 +467,11 @@ export class DynamicProfitManager {
     for (let i = 0; i < this.settings.profitLockLevels.length; i++) {
       const level = this.settings.profitLockLevels[i];
       const lockPercent = this.settings.profitLockPercents[i];
+
+      // TypeScript safety checks
+      if (!level || !lockPercent) {
+        continue;
+      }
 
       if (unrealizedPnLPercent >= level && unrealizedPnLPercent < (this.settings.profitLockLevels[i + 1] || Infinity)) {
         const suggestedQuantity = Math.floor(position.quantity * (lockPercent / 100));

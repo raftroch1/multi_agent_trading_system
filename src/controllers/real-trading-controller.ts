@@ -21,12 +21,62 @@ import { PositionManagementAgent } from '../strategies/position-management/posit
 import { alpacaClient } from '../services/alpaca/alpaca-client';
 import { DynamicProfitManager } from '../strategies/position-management/dynamic-profit-manager';
 
+// ============================================================================
+// PHASE 1 QUALITY CONTROL CONFIGURATION
+// ============================================================================
+export interface Phase1QualityConfig {
+  // Signal Persistence Configuration
+  signalPersistence: {
+    enabled: boolean;
+    requiredConsecutiveSignals: number;      // Require 3 consecutive matching signals
+    signalHistorySize: number;               // Keep last 3 signals in memory
+    persistenceWindowMinutes: number;        // Signals must occur within 3 minutes
+  };
+  
+  // Confidence Threshold Configuration
+  confidenceThreshold: {
+    minimum: number;                         // 75% minimum (raised from 65%)
+    tiered: {
+      standard: { min: number; max: number; positionSizePercent: number };  // 75-80%: 1%
+      high: { min: number; max: number; positionSizePercent: number };      // 80-85%: 2%
+      veryHigh: { min: number; positionSizePercent: number };               // 85%+: 3%
+    };
+  };
+  
+  // Post-Trade Cooldown Configuration
+  postTradeCooldown: {
+    enabled: boolean;
+    cooldownMinutes: number;                 // 10 minutes after closing
+    trackPerSymbol: boolean;                 // Separate cooldown per symbol
+  };
+}
+
 export interface RealTradingConfig {
   symbol: string;
   minConfidenceThreshold: number;
   maxPositionSize: number;
   maxDailyTrades: number;
   riskManagementEnabled: boolean;
+  phase1Quality: Phase1QualityConfig;        // Phase 1 quality control settings
+}
+
+// Signal history for persistence checking
+export interface SignalHistoryEntry {
+  timestamp: Date;
+  signal: 'BUY_CALL' | 'BUY_PUT' | 'NO_TRADE';
+  confidence: number;
+  agentVotes: {
+    BUY_CALL: number;
+    BUY_PUT: number;
+    NO_TRADE: number;
+  };
+}
+
+// Cooldown tracking for symbols
+export interface CooldownEntry {
+  symbol: string;
+  lastCloseTime: Date;
+  cooldownUntil: Date;
 }
 
 export interface TradingSession {
@@ -36,20 +86,53 @@ export interface TradingSession {
   accountValue: number;
   signalsGenerated: number;
   ordersExecuted: number;
+  signalsRejectedLowPersistence: number;     // Phase 1: Signals rejected for persistence
+  signalsRejectedLowConfidence: number;      // Phase 1: Signals rejected for confidence
+  tradesRejectedCooldown: number;            // Phase 1: Trades rejected for cooldown
 }
 
 export class RealTradingController {
   private config: RealTradingConfig;
   private session: TradingSession;
   private isRunning: boolean = false;
+  
+  // Phase 1: Signal persistence tracking
+  private signalHistory: SignalHistoryEntry[] = [];
+  
+  // Phase 1: Post-trade cooldown tracking
+  private symbolCooldowns: Map<string, CooldownEntry> = new Map();
 
   constructor(config: Partial<RealTradingConfig> = {}) {
+    // Default Phase 1 Quality Control Configuration
+    const defaultPhase1Config: Phase1QualityConfig = {
+      signalPersistence: {
+        enabled: true,
+        requiredConsecutiveSignals: 3,
+        signalHistorySize: 3,
+        persistenceWindowMinutes: 3
+      },
+      confidenceThreshold: {
+        minimum: 75,  // Raised from 65%
+        tiered: {
+          standard: { min: 75, max: 80, positionSizePercent: 1 },
+          high: { min: 80, max: 85, positionSizePercent: 2 },
+          veryHigh: { min: 85, positionSizePercent: 3 }
+        }
+      },
+      postTradeCooldown: {
+        enabled: true,
+        cooldownMinutes: 10,
+        trackPerSymbol: true
+      }
+    };
+
     this.config = {
       symbol: 'SPY',
-      minConfidenceThreshold: 65,
+      minConfidenceThreshold: 75,  // Phase 1: Raised from 65
       maxPositionSize: 5,
       maxDailyTrades: 10,
       riskManagementEnabled: true,
+      phase1Quality: defaultPhase1Config,
       ...config
     };
 
@@ -59,15 +142,177 @@ export class RealTradingController {
       totalPnL: 0,
       accountValue: 0,
       signalsGenerated: 0,
-      ordersExecuted: 0
+      ordersExecuted: 0,
+      signalsRejectedLowPersistence: 0,
+      signalsRejectedLowConfidence: 0,
+      tradesRejectedCooldown: 0
     };
 
-    console.log('🚀 Real Trading Controller initialized');
+    console.log('🚀 Real Trading Controller initialized - PHASE 1 QUALITY MODE');
     console.log(`   Symbol: ${this.config.symbol}`);
-    console.log(`   Min confidence: ${this.config.minConfidenceThreshold}%`);
+    console.log(`   Min confidence: ${this.config.minConfidenceThreshold}% (Phase 1: Raised from 65%)`);
     console.log(`   Max daily trades: ${this.config.maxDailyTrades}`);
     console.log(`   Risk management: ${this.config.riskManagementEnabled ? 'ENABLED' : 'DISABLED'}`);
+    console.log(`\n📋 PHASE 1 QUALITY CONTROLS:`);
+    console.log(`   Signal Persistence: ${this.config.phase1Quality.signalPersistence.enabled ? 'ENABLED' : 'DISABLED'} (${this.config.phase1Quality.signalPersistence.requiredConsecutiveSignals} consecutive signals)`);
+    console.log(`   Post-Trade Cooldown: ${this.config.phase1Quality.postTradeCooldown.enabled ? 'ENABLED' : 'DISABLED'} (${this.config.phase1Quality.postTradeCooldown.cooldownMinutes} minutes)`);
+    console.log(`   Tiered Confidence: 75-80% (1%), 80-85% (2%), 85%+ (3%)`);
   }
+
+  // ============================================================================
+  // PHASE 1 QUALITY CONTROL METHODS
+  // ============================================================================
+
+  /**
+   * Phase 1: Check signal persistence
+   * Requires signals to persist for 3 consecutive checks (3 minutes)
+   */
+  private checkSignalPersistence(newSignal: ConsensusSignal): boolean {
+    const config = this.config.phase1Quality.signalPersistence;
+    
+    if (!config.enabled) {
+      return true;  // If disabled, all signals pass
+    }
+
+    // Add new signal to history
+    const signalEntry: SignalHistoryEntry = {
+      timestamp: new Date(),
+      signal: newSignal.finalSignal,
+      confidence: newSignal.overallConfidence,
+      agentVotes: { ...newSignal.agentVotes }
+    };
+
+    this.signalHistory.push(signalEntry);
+
+    // Keep only the last N signals
+    if (this.signalHistory.length > config.signalHistorySize) {
+      this.signalHistory.shift();
+    }
+
+    // Need at least requiredConsecutiveSignals signals
+    if (this.signalHistory.length < config.requiredConsecutiveSignals) {
+      console.log(`⏳ Signal persistence: ${this.signalHistory.length}/${config.requiredConsecutiveSignals} signals collected`);
+      return false;
+    }
+
+    // Check if all signals in window match
+    const firstSignal = this.signalHistory[0]?.signal;
+    if (!firstSignal) {
+      return false;  // Should not happen, but safety check
+    }
+    
+    const allMatch = this.signalHistory.every(entry => entry.signal === firstSignal);
+
+    if (!allMatch) {
+      console.log(`❌ Signal persistence failed: Signals not consistent`);
+      console.log(`   Recent signals: ${this.signalHistory.map(s => s.signal).join(' → ')}`);
+      return false;
+    }
+
+    // Check if signals are within time window
+    const oldestSignal = this.signalHistory[0];
+    const newestSignal = this.signalHistory[this.signalHistory.length - 1];
+    if (!oldestSignal || !newestSignal) {
+      return false;  // Safety check
+    }
+    
+    const timeDiffMinutes = (newestSignal.timestamp.getTime() - oldestSignal.timestamp.getTime()) / (1000 * 60);
+
+    if (timeDiffMinutes > config.persistenceWindowMinutes) {
+      console.log(`⏳ Signal persistence: Time window exceeded (${timeDiffMinutes.toFixed(1)} > ${config.persistenceWindowMinutes} min)`);
+      return false;
+    }
+
+    console.log(`✅ Signal persistence check PASSED`);
+    console.log(`   ${config.requiredConsecutiveSignals} consecutive ${firstSignal} signals over ${timeDiffMinutes.toFixed(1)} minutes`);
+    return true;
+  }
+
+  /**
+   * Phase 1: Check if symbol is in cooldown period
+   */
+  private isSymbolInCooldown(symbol: string): boolean {
+    const config = this.config.phase1Quality.postTradeCooldown;
+    
+    if (!config.enabled) {
+      return false;  // If disabled, no cooldowns
+    }
+
+    const cooldownEntry = this.symbolCooldowns.get(symbol);
+    if (!cooldownEntry) {
+      return false;  // No cooldown recorded
+    }
+
+    const now = new Date();
+    if (now < cooldownEntry.cooldownUntil) {
+      const remainingMinutes = (cooldownEntry.cooldownUntil.getTime() - now.getTime()) / (1000 * 60);
+      console.log(`⏸️  ${symbol} in cooldown for ${remainingMinutes.toFixed(1)} more minutes`);
+      return true;
+    }
+
+    // Cooldown expired, remove entry
+    this.symbolCooldowns.delete(symbol);
+    return false;
+  }
+
+  /**
+   * Phase 1: Set cooldown for symbol after closing position
+   */
+  private setCooldownForSymbol(symbol: string): void {
+    const config = this.config.phase1Quality.postTradeCooldown;
+    
+    if (!config.enabled) {
+      return;
+    }
+
+    const now = new Date();
+    const cooldownUntil = new Date(now.getTime() + config.cooldownMinutes * 60 * 1000);
+
+    this.symbolCooldowns.set(symbol, {
+      symbol,
+      lastCloseTime: now,
+      cooldownUntil
+    });
+
+    console.log(`🔒 Cooldown set for ${symbol} until ${cooldownUntil.toLocaleTimeString()}`);
+  }
+
+  /**
+   * Phase 1: Calculate tiered position size based on confidence level
+   */
+  private calculateTieredPositionSize(
+    confidence: number,
+    baseSize: number,
+    accountValue: number
+  ): number {
+    const tiers = this.config.phase1Quality.confidenceThreshold.tiered;
+
+    let positionSizePercent: number;
+    let tier: string;
+
+    if (confidence >= tiers.veryHigh.min) {
+      positionSizePercent = tiers.veryHigh.positionSizePercent;
+      tier = 'VERY HIGH';
+    } else if (confidence >= tiers.high.min && confidence < tiers.high.max) {
+      positionSizePercent = tiers.high.positionSizePercent;
+      tier = 'HIGH';
+    } else {
+      positionSizePercent = tiers.standard.positionSizePercent;
+      tier = 'STANDARD';
+    }
+
+    const dollarAmount = accountValue * (positionSizePercent / 100);
+    
+    console.log(`💰 Tiered position sizing:`);
+    console.log(`   Confidence: ${confidence}% (${tier} quality)`);
+    console.log(`   Position size: ${positionSizePercent}% of account = $${dollarAmount.toFixed(2)}`);
+
+    return baseSize;  // For now, return base size (can be enhanced to calculate contracts)
+  }
+
+  // ============================================================================
+  // END PHASE 1 QUALITY CONTROL METHODS
+  // ============================================================================
 
   /**
    * Start real trading session
@@ -153,15 +398,49 @@ export class RealTradingController {
           console.log(`   Confidence: ${consensus.overallConfidence}%`);
           console.log(`   Agent votes: BUY_CALL: ${consensus.agentVotes.BUY_CALL}, BUY_PUT: ${consensus.agentVotes.BUY_PUT}, NO_TRADE: ${consensus.agentVotes.NO_TRADE}`);
 
-          // Execute trade if confidence threshold met
-          if (consensus.overallConfidence >= this.config.minConfidenceThreshold &&
-              consensus.finalSignal !== 'NO_TRADE' &&
-              this.session.tradesPlaced < this.config.maxDailyTrades) {
-
-            await this.executeTrade(consensus, marketData, zeroDTEOptions);
-          } else {
-            console.log('❌ Trade not executed (confidence too low or trade limit reached)');
+          // Skip NO_TRADE signals
+          if (consensus.finalSignal === 'NO_TRADE') {
+            console.log('⏭️  NO_TRADE signal - waiting for opportunity');
+            continue;
           }
+
+          // ========================================================================
+          // PHASE 1 QUALITY CONTROL LAYER
+          // ========================================================================
+
+          // Phase 1 Check 1: Signal Persistence
+          const persistenceCheck = this.checkSignalPersistence(consensus);
+          if (!persistenceCheck) {
+            this.session.signalsRejectedLowPersistence++;
+            console.log(`❌ PHASE 1 REJECTED: Signal persistence requirement not met`);
+            continue;  // Skip to next iteration
+          }
+
+          // Phase 1 Check 2: Confidence Threshold (raised to 75%)
+          if (consensus.overallConfidence < this.config.minConfidenceThreshold) {
+            this.session.signalsRejectedLowConfidence++;
+            console.log(`❌ PHASE 1 REJECTED: Confidence ${consensus.overallConfidence}% below minimum ${this.config.minConfidenceThreshold}%`);
+            continue;  // Skip to next iteration
+          }
+
+          // Phase 1 Check 3: Post-Trade Cooldown
+          if (this.isSymbolInCooldown(this.config.symbol)) {
+            this.session.tradesRejectedCooldown++;
+            console.log(`❌ PHASE 1 REJECTED: Symbol in post-trade cooldown`);
+            continue;  // Skip to next iteration
+          }
+
+          // Phase 1 Check 4: Daily trade limit
+          if (this.session.tradesPlaced >= this.config.maxDailyTrades) {
+            console.log(`❌ REJECTED: Daily trade limit reached (${this.session.tradesPlaced}/${this.config.maxDailyTrades})`);
+            continue;
+          }
+
+          // ========================================================================
+          // ALL PHASE 1 CHECKS PASSED - EXECUTE TRADE
+          // ========================================================================
+          console.log(`\n✅ ALL PHASE 1 QUALITY CHECKS PASSED - PROCEEDING TO TRADE EXECUTION`);
+          await this.executeTrade(consensus, marketData, zeroDTEOptions);
         }
 
         // Check existing positions for exits
@@ -374,6 +653,9 @@ export class RealTradingController {
       console.log(`✅ Position closed successfully!`);
       console.log(`   Order ID: ${closeResult.orderId || 'pending'}`);
 
+      // Phase 1: Set cooldown after closing position
+      this.setCooldownForSymbol(position.symbol);
+
     } catch (error) {
       console.error('❌ Failed to close position:', error);
     }
@@ -397,6 +679,11 @@ export class RealTradingController {
       console.log(`   Signals generated: ${this.session.signalsGenerated}`);
       console.log(`   Orders executed: ${this.session.ordersExecuted}`);
       console.log(`   Session duration: ${Math.floor((Date.now() - this.session.startTime.getTime()) / 60000)} minutes`);
+      console.log(`\n📋 PHASE 1 QUALITY CONTROL STATS:`);
+      console.log(`   Signals rejected (low persistence): ${this.session.signalsRejectedLowPersistence}`);
+      console.log(`   Signals rejected (low confidence): ${this.session.signalsRejectedLowConfidence}`);
+      console.log(`   Trades rejected (cooldown): ${this.session.tradesRejectedCooldown}`);
+      console.log(`   Total rejections: ${this.session.signalsRejectedLowPersistence + this.session.signalsRejectedLowConfidence + this.session.tradesRejectedCooldown}`);
 
     } catch (error) {
       console.error('❌ Error updating session stats:', error);
